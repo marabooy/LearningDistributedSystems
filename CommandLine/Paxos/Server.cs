@@ -16,6 +16,7 @@ internal class Server : Node
     // acceptors and replicas are always online.
     // accetors reacieve phase 1a and reply with phase 1b , 2a and reply 2b
     private readonly Ballot acceptorBallot;
+    private List<BallotValue> acceptedBallots;
 
     private AMOApplication app = new();
     private readonly ILoggingAdapter _log = Logging.GetLogger(Context);
@@ -43,6 +44,11 @@ internal class Server : Node
         {
             HandleAMORequest(aMORequest);
         }
+
+        if (request is Phase2A p2a)
+        {
+            HandlePhase2A(p2a, sender);
+        }
         throw new NotImplementedException();
     }
 
@@ -58,6 +64,18 @@ internal class Server : Node
         {
             // respond with phase1b
             this.SendToPeer(sender, new Phase1B());
+        }
+    }
+
+    private void HandlePhase2A(Phase2A message, string sender)
+    {
+        if (message.ballotNumber == this.acceptorBallot.ballotNum)
+        {
+            this.acceptedBallots.Add(new BallotValue(message.ballotNumber, message.ballotValue));
+        }
+        else 
+        {
+            this.SendToPeer(sender, new Phase2B());
         }
     }
 
