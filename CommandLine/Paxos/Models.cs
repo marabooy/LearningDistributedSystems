@@ -16,7 +16,7 @@ record Phase2A(int ballotNumber, int ballotValue) : IRequest
 {
 }
 
-record Phase2B : IResult
+record Phase2B(int ballotNumber, int slotNumber, string command) : IResult
 { 
 }
 

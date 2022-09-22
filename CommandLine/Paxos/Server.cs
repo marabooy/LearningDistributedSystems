@@ -75,7 +75,7 @@ internal class Server : Node
         }
         else 
         {
-            this.SendToPeer(sender, new Phase2B());
+            this.SendToPeer(sender, new Phase2B(this.acceptorBallot.ballotNum, message.ballotValue, "accepted"));
         }
     }
 
