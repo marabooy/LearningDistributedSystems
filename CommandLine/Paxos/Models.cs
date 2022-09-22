@@ -22,3 +22,8 @@ record Phase2B(int ballotNumber, int slotNumber, string command) : IResult
 
 record Proposal(AMORequest Request, int slotNumber);
 record Decision(AMORequest Request, int slotNumber);
+
+record P1BResult(Ballot Ballot) : IResult { }
+record P2AResult(Ballot Ballot, int slotNumber) : IResult { }
+record ScoutTimer() : ITimer { }
+record CommandTimer() : ITimer { }
