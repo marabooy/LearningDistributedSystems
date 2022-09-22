@@ -13,3 +13,6 @@ record Phase1B : IResult
 
 record Proposal(AMORequest Request, int slotNumber);
 record Decision(AMORequest Request, int slotNumber);
+
+record P1BResult(Ballot Ballot) : IResult { }
+record ScoutTimer() : ITimer { }
