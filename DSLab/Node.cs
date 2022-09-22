@@ -29,6 +29,12 @@ namespace Core
             return Sender.Path.Elements[Sender.Path.Elements.Count - 1];
         }
 
+
+        private string GetSelf()
+        {
+            return Sender.Path.Elements[Self.Path.Elements.Count - 1];
+        }
+
         protected void SendToPeer(string peerId, object message)
         {
             var selection = Context.ActorSelection($"../{peerId}");

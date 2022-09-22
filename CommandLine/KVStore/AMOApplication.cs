@@ -10,14 +10,19 @@ public class AMOApplication : IDistributedApplication
     private readonly KVStore application;
 
     private readonly Dictionary<string, Info> recorder;
+    public AMOApplication()
+    {
+        this.application = new();
+        recorder = new();
+    }
 
     public AMOApplication(AMOApplication application)
     {
         var app = application.application;
 
-        this.application = new KVStore(app);
+        this.application = new(app);
 
-        recorder = new Dictionary<string, Info>(application.recorder);
+        recorder = new(application.recorder);
     }
 
     public IResult Execute(IRequest request)
@@ -42,7 +47,7 @@ public class AMOApplication : IDistributedApplication
 
     private bool alreadyExecuted(AMORequest req)
     {
-        Info info = this.recorder.GetValueOrDefault(req.address, null);
+        Info info = this.recorder.GetValueOrDefault(req.address);
 
         return info != null && info.sequenceNumber >= req.sequenceNumber;
     }
