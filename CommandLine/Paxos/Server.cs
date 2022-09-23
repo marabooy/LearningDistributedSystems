@@ -63,7 +63,6 @@ internal class Server : Node
             // if leader is not alive and we are not leader send Phase1A again.
             this.AddTimer(timer, 200);
         }
-        
     }
 
     protected override void HandleRequest(IRequest request, string sender)
@@ -148,7 +147,7 @@ internal class Server : Node
             this.SendToPeer(sender, new Phase1B());
         }
     }
-
+    
     private void HandlePhase2A(Phase2A message, string sender)
     {
         if (message.ballotNumber == this.acceptorBallot.ballotNum)
