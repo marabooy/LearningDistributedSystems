@@ -1,6 +1,7 @@
 ﻿using Akka.Event;
 using CommandLine.KVStore;
 using Core;
+using System.Security.Permissions;
 
 namespace CommandLine.Paxos;
 
@@ -16,6 +17,7 @@ internal class Server : Node
     // acceptors and replicas are always online.
     // accetors reacieve phase 1a and reply with phase 1b , 2a and reply 2b
     private readonly Ballot acceptorBallot;
+    private List<BallotValue> acceptedBallots;
 
     private AMOApplication app = new();
     private readonly ILoggingAdapter _log = Logging.GetLogger(Context);
@@ -29,6 +31,12 @@ internal class Server : Node
     private Ballot scoutBallot;
     #endregion
     #endregion
+
+    #region Commander
+    private HashSet<string> commandWaitFor = new();
+    private Ballot commandBallot;
+
+    #endregion
     public Server(IServiceProvider sp, string address, string[] peers)
     {
         this.sp = sp;
@@ -36,9 +44,13 @@ internal class Server : Node
         this.peers = peers;
         this.acceptorBallot = new Ballot(0, address);
         this.scoutBallot = new Ballot(1, address);
+        this.commandBallot = new Ballot(1, address);
         this.leaderBallot = scoutBallot;
         this.AddTimer(new ScoutTimer(), 200);
+        this.AddTimer(new CommandTimer(), 200);
+
         waitFor = new(peers);
+        commandWaitFor = new(peers);
     }
 
     public override void ReceiveTimer(ITimer timer)
@@ -63,6 +75,11 @@ internal class Server : Node
         {
             HandleAMORequest(aMORequest);
         }
+
+        if (request is Phase2A p2a)
+        {
+            HandlePhase2A(p2a, sender);
+        }
         throw new NotImplementedException();
     }
 
@@ -71,6 +88,30 @@ internal class Server : Node
         if (result is P1BResult p1BResult)
         {
             HandleP1BResult(p1BResult, sender);
+        }
+        if (result is P2AResult p2AResult)
+        {
+            HandleP2AResult(p2AResult, sender);
+        }
+    }
+
+    private void HandleP2AResult(P2AResult p2AResult, string sender)
+    {
+        if (p2AResult.Ballot.Equals(commandBallot) && commandWaitFor.Contains(sender))
+        {
+            commandWaitFor.Remove(sender);
+            if (commandWaitFor.Count < peers.Length + 1 / 2.0)
+            {
+                this.BroadCastToPeers(commandBallot, peers);
+            }
+        }
+        else
+        {
+            if (this.commandBallot.ballotNum < p2AResult.Ballot.ballotNum)
+            {
+                this.commandBallot = new Ballot(p2AResult.Ballot.ballotNum, address);
+                this.SendToPeer(sender, commandBallot);
+            }
         }
     }
 
@@ -106,6 +147,22 @@ internal class Server : Node
             this.SendToPeer(sender, new Phase1B());
         }
     }
+    
+    private void HandlePhase2A(Phase2A message, string sender)
+    {
+        if (message.ballotNumber == this.acceptorBallot.ballotNum)
+        {
+            this.acceptedBallots.Add(new BallotValue(message.ballotNumber, message.ballotValue));
+        }
+        else 
+        {
+            this.SendToPeer(sender, new Phase2B(this.acceptorBallot.ballotNum, message.ballotValue, "accepted"));
+        }
+    }
+
+    #region Leader
+
+    #endregion
 
     #region Replica
     private readonly int window = 10;

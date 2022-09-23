@@ -41,7 +41,7 @@ namespace Core
             selection.Tell(message);
         }
 
-        private void BroadCastToPeers(object message, params string[] peers)
+        protected void BroadCastToPeers(object message, params string[] peers)
         {
             foreach (var peer in peers)
             {
