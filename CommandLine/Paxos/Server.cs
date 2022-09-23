@@ -21,17 +21,37 @@ internal class Server : Node
     private AMOApplication app = new();
     private readonly ILoggingAdapter _log = Logging.GetLogger(Context);
 
+    #region Leader
+    private Ballot leaderBallot;
+    bool isActive = false;
+
+    #region Scout
+    private HashSet<string> waitFor = new();
+    private Ballot scoutBallot;
+    #endregion
+    #endregion
     public Server(IServiceProvider sp, string address, string[] peers)
     {
         this.sp = sp;
         this.address = address;
         this.peers = peers;
         this.acceptorBallot = new Ballot(0, address);
+        this.scoutBallot = new Ballot(1, address);
+        this.leaderBallot = scoutBallot;
+        this.AddTimer(new ScoutTimer(), 200);
+        waitFor = new(peers);
     }
 
     public override void ReceiveTimer(ITimer timer)
     {
-        throw new NotImplementedException();
+        if (timer is ScoutTimer)
+        {
+            // check if elected.
+            // Check if we have a leader. 
+            // Check if leader is alive.
+            // if leader is not alive and we are not leader send Phase1A again.
+            this.AddTimer(timer, 200);
+        }
     }
 
     protected override void HandleRequest(IRequest request, string sender)
@@ -52,9 +72,35 @@ internal class Server : Node
         throw new NotImplementedException();
     }
 
-    protected override void ReceiveResponse(IResult message, string sender)
+    protected override void ReceiveResponse(IResult result, string sender)
     {
-        throw new NotImplementedException();
+        if (result is P1BResult p1BResult)
+        {
+            HandleP1BResult(p1BResult, sender);
+        }
+    }
+
+    // Scout logic for P1B result
+    private void HandleP1BResult(P1BResult p1BResult, string sender)
+    {
+        if (p1BResult.Ballot.Equals(scoutBallot) && waitFor.Contains(sender))
+        {
+            waitFor.Remove(sender);
+            if (waitFor.Count < peers.Length + 1 / 2.0)
+            {
+                this.leaderBallot = scoutBallot;
+                this.isActive = true;
+                // todo: Adopt Pvalues.
+            }
+        }
+        else
+        {
+            this.isActive = false;
+            if (this.scoutBallot.ballotNum < p1BResult.Ballot.ballotNum)
+            {
+                this.scoutBallot = new Ballot(p1BResult.Ballot.ballotNum + 1, address);
+            }
+        }
     }
 
     private void HandlePhase1A(Phase1A message, string sender)
@@ -66,7 +112,7 @@ internal class Server : Node
             this.SendToPeer(sender, new Phase1B());
         }
     }
-
+    
     private void HandlePhase2A(Phase2A message, string sender)
     {
         if (message.ballotNumber == this.acceptorBallot.ballotNum)
@@ -105,7 +151,7 @@ internal class Server : Node
         {
             if (proposals.ContainsKey(slotOut))
             {
-                // Proposed message at a certain slot was not chosen.
+                // Proposed result at a certain slot was not chosen.
                 if (!proposals[slotOut].Request.Equals(decisions[slotOut].Request))
                 {
                     requests.Enqueue(proposals[slotOut].Request);
